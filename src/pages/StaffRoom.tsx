@@ -427,6 +427,23 @@ function BrandingSettingsTab({ branding, refreshBranding }: any) {
   const [subtitle, setSubtitle] = useState(branding?.subtitle || '');
   const [tagline, setTagline] = useState(branding?.tagline || '');
   const [founderNote, setFounderNote] = useState(branding?.founder_note || '');
+  const [isUploading, setIsUploading] = useState(false);
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const url = await uploadImage(file);
+      setLogoUrl(url);
+    } catch (err) {
+      console.error("Error uploading logo:", err);
+      alert('Failed to upload logo.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -443,15 +460,16 @@ function BrandingSettingsTab({ branding, refreshBranding }: any) {
         <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
           <h3 className="font-bold text-gray-900 mb-4">Upload Logo</h3>
           <div className="mb-4">
-            <label className="block text-sm font-medium mb-1">Logo URL (PNG, JPG, WebP)</label>
+            <label className="block text-sm font-medium mb-1">Upload New Logo Image (PNG, JPG, WebP)</label>
             <input 
-              type="text" 
-              className="w-full border rounded px-3 py-2 focus:ring-blue-500 focus:outline-none" 
-              placeholder="https://example.com/logo.png"
-              value={logoUrl} 
-              onChange={e => setLogoUrl(e.target.value)} 
+              type="file" 
+              accept="image/*"
+              disabled={isUploading}
+              className="w-full border rounded px-3 py-2 bg-white focus:ring-blue-500 focus:outline-none" 
+              onChange={handleLogoUpload} 
             />
-            <p className="text-xs text-gray-500 mt-1">Provide a URL for the logo. Clear it to use the default 🌟 placeholder.</p>
+            {isUploading && <p className="text-sm text-blue-600 mt-2">Uploading image...</p>}
+            <p className="text-xs text-gray-500 mt-1">Select a file from your device. Clear the database field (or use a fresh database) to use the default 🌟 placeholder.</p>
           </div>
           <div className="mt-4">
             <p className="text-sm font-medium mb-2">Current Logo Preview:</p>
