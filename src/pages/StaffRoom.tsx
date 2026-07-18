@@ -132,6 +132,8 @@ function ConnectionRequestsTab({ participants }: { participants: Participant[] }
 function ApplicationsTab({ participants, setParticipants }: any) {
   const { forceLoginAs } = useAppContext();
   const navigate = useNavigate();
+  const [uploadingId, setUploadingId] = useState<number | null>(null);
+  const [editingParticipant, setEditingParticipant] = useState<Participant | null>(null);
 
   const handleUpdate = async (p: Participant, status: any) => {
     const updated = { ...p, application_status: status };
@@ -141,6 +143,16 @@ function ApplicationsTab({ participants, setParticipants }: any) {
     alert('Status updated!');
   };
 
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingParticipant) return;
+    await db.saveParticipant(editingParticipant);
+    const all = await db.getParticipants();
+    setParticipants(all);
+    setEditingParticipant(null);
+    alert('Participant details updated!');
+  };
+
   const handleConsentToggle = async (p: Participant) => {
     const updated = { ...p, guardian_consent: !p.guardian_consent };
     await db.saveParticipant(updated);
@@ -148,6 +160,34 @@ function ApplicationsTab({ participants, setParticipants }: any) {
     setParticipants(all);
   };
   
+  const handlePhotoChange = async (p: Participant, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingId(p.id);
+    try {
+      const url = await uploadImage(file);
+      const updated = { ...p, participant_photo_url: url };
+      await db.saveParticipant(updated);
+      const all = await db.getParticipants();
+      setParticipants(all);
+      alert('Photo updated successfully!');
+    } catch (err) {
+      console.error('Error uploading photo:', err);
+      alert('Failed to upload photo.');
+    } finally {
+      setUploadingId(null);
+    }
+  };
+  
+  const handleToggleHide = async (p: Participant) => {
+    const isHidden = p.application_status === 'Hidden';
+    const updated = { ...p, application_status: isHidden ? 'Approved' : 'Hidden' };
+    await db.saveParticipant(updated);
+    const all = await db.getParticipants();
+    setParticipants(all);
+  };
+
   const handlePreview = async (p: Participant) => {
     const success = await forceLoginAs(p.id);
     if (success) {
@@ -186,6 +226,7 @@ function ApplicationsTab({ participants, setParticipants }: any) {
                     <option value="Pending">Pending</option>
                     <option value="Approved">Approved</option>
                     <option value="Rejected">Rejected</option>
+                    <option value="Hidden">Hidden</option>
                   </select>
                 </td>
                 <td className="py-3 px-4">
@@ -194,8 +235,22 @@ function ApplicationsTab({ participants, setParticipants }: any) {
                   </label>
                 </td>
                 <td className="py-3 px-4 font-mono text-sm tracking-widest">{p.participant_access_pin}</td>
-                <td className="py-3 px-4 flex gap-2">
+                <td className="py-3 px-4 flex gap-2 flex-wrap max-w-sm">
+                  <button onClick={() => setEditingParticipant(p)} className="bg-green-100 text-green-700 px-3 py-1 rounded hover:bg-green-200 text-sm font-medium">Edit Details</button>
                   <button onClick={() => handlePreview(p)} className="bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200 text-sm font-medium">Preview as Parent</button>
+                  <button onClick={() => handleToggleHide(p)} className="bg-gray-100 text-gray-700 px-3 py-1 rounded hover:bg-gray-200 text-sm font-medium">
+                    {p.application_status === 'Hidden' ? 'Unhide Card' : 'Hide Card'}
+                  </button>
+                  <label className={`cursor-pointer px-3 py-1 rounded text-sm font-medium ${uploadingId === p.id ? 'bg-purple-200 text-purple-800' : 'bg-purple-100 text-purple-700 hover:bg-purple-200'}`}>
+                    {uploadingId === p.id ? 'Uploading...' : 'Change Photo'}
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      disabled={uploadingId === p.id} 
+                      onChange={(e) => handlePhotoChange(p, e)} 
+                    />
+                  </label>
                 </td>
               </tr>
             ))}
@@ -211,6 +266,58 @@ function ApplicationsTab({ participants, setParticipants }: any) {
           Do not set guardian_consent to TRUE unless permission has been genuinely confirmed.
         </div>
       </div>
+
+      {editingParticipant && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-6 border-b flex justify-between items-center bg-gray-50 shrink-0">
+              <h3 className="font-bold text-lg">Edit Details for {editingParticipant.first_name}</h3>
+              <button onClick={() => setEditingParticipant(null)} className="text-gray-500 hover:bg-gray-200 w-8 h-8 flex items-center justify-center rounded-full">&times;</button>
+            </div>
+            <div className="p-6 overflow-y-auto">
+              <form id="edit-form" onSubmit={handleSaveEdit} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">First Name</label>
+                    <input required type="text" className="w-full border rounded px-3 py-2" value={editingParticipant.first_name} onChange={e => setEditingParticipant({...editingParticipant, first_name: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Age</label>
+                    <input required type="number" className="w-full border rounded px-3 py-2" value={editingParticipant.age || ''} onChange={e => setEditingParticipant({...editingParticipant, age: parseInt(e.target.value)})} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Location</label>
+                    <input required type="text" className="w-full border rounded px-3 py-2" value={editingParticipant.location_area} onChange={e => setEditingParticipant({...editingParticipant, location_area: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Attendance Type</label>
+                    <select className="w-full border rounded px-3 py-2" value={editingParticipant.attendance_type} onChange={e => setEditingParticipant({...editingParticipant, attendance_type: e.target.value as any})}>
+                      <option value="Physical">Physical</option>
+                      <option value="Remote">Remote</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Supported By (Optional)</label>
+                    <input type="text" className="w-full border rounded px-3 py-2" value={editingParticipant.supported_by || ''} onChange={e => setEditingParticipant({...editingParticipant, supported_by: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">SDG Goal Focus (Optional)</label>
+                    <input type="text" className="w-full border rounded px-3 py-2" value={editingParticipant.sdg_goal_focus || ''} onChange={e => setEditingParticipant({...editingParticipant, sdg_goal_focus: e.target.value})} />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Story</label>
+                  <textarea className="w-full border rounded px-3 py-2 h-24" value={editingParticipant.story || ''} onChange={e => setEditingParticipant({...editingParticipant, story: e.target.value})} />
+                </div>
+              </form>
+            </div>
+            <div className="p-6 border-t bg-gray-50 flex justify-end gap-3 shrink-0">
+              <button onClick={() => setEditingParticipant(null)} className="px-4 py-2 rounded text-gray-700 bg-white border hover:bg-gray-100 font-medium">Cancel</button>
+              <button form="edit-form" type="submit" className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white font-medium">Save Changes</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -288,6 +395,7 @@ function CreateParticipantTab({ setParticipants }: any) {
             <option value="Approved">Approved</option>
             <option value="Pending">Pending</option>
             <option value="Rejected">Rejected</option>
+            <option value="Hidden">Hidden</option>
           </select>
         </div>
         
@@ -530,6 +638,26 @@ function CreationsManagerTab({ participants }: any) {
     }
   }, [selectedId]);
 
+  const handleCreationPhotoChange = async (c: any, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const url = await uploadImage(file);
+      const updated = { ...c, image_url: url };
+      await db.saveCreation(updated);
+      const allC = await db.getCreationsByParticipant(parseInt(selectedId));
+      setCreations(allC);
+      alert('Creation photo updated successfully!');
+    } catch (err) {
+      console.error('Error uploading photo:', err);
+      alert('Failed to update creation photo.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleDelete = async (id: number) => {
     if(confirm('Delete this creation?')) {
       await db.deleteCreation(id);
@@ -629,6 +757,15 @@ function CreationsManagerTab({ participants }: any) {
                 <p className="text-sm text-gray-500">{c.project_category}</p>
                 <p className="text-sm mt-2">{c.description}</p>
                 <div className="mt-3 flex gap-2">
+                  <label className="bg-purple-100 text-purple-700 px-3 py-1 rounded text-sm hover:bg-purple-200 cursor-pointer">
+                    Change Photo
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={(e) => handleCreationPhotoChange(c, e)} 
+                    />
+                  </label>
                   <button onClick={() => handleDelete(c.id)} className="bg-red-100 text-red-700 px-3 py-1 rounded text-sm hover:bg-red-200">Delete</button>
                 </div>
               </div>

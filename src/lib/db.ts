@@ -91,9 +91,10 @@ export const db = {
       if (updateError) throw updateError;
       return updated as Participant;
     } else {
+      const { id, created_at, updated_at, ...updateData } = participant as any;
       const { data, error } = await supabase
         .from('sdg_camp_youth_participants')
-        .update(participant)
+        .update(updateData)
         .eq('id', participant.id)
         .select()
         .single();
@@ -132,7 +133,8 @@ export const db = {
     if (!toSave.id) delete toSave.id;
     
     if (toSave.id) {
-      const { data, error } = await supabase.from('sdg_camp_youth_creations').update(toSave).eq('id', toSave.id).select().single();
+      const { id, created_at, updated_at, ...updateData } = toSave as any;
+      const { data, error } = await supabase.from('sdg_camp_youth_creations').update(updateData).eq('id', toSave.id).select().single();
       if (error) throw error;
       return data as Creation;
     } else {
@@ -168,7 +170,8 @@ export const db = {
     if (!toSave.id) delete toSave.id;
     
     if (toSave.id) {
-      const { data, error } = await supabase.from('sdg_camp_youth_stories').update(toSave).eq('id', toSave.id).select().single();
+      const { id, created_at, updated_at, ...updateData } = toSave as any;
+      const { data, error } = await supabase.from('sdg_camp_youth_stories').update(updateData).eq('id', toSave.id).select().single();
       if (error) throw error;
       return data as Story;
     } else {

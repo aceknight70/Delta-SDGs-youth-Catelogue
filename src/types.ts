@@ -1,4 +1,4 @@
-export type ApplicationStatus = 'Pending' | 'Approved' | 'Rejected';
+export type ApplicationStatus = 'Pending' | 'Approved' | 'Rejected' | 'Hidden';
 export type AttendanceType = 'Physical' | 'Remote';
 
 export interface Participant {
