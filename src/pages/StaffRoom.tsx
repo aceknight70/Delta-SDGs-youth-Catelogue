@@ -359,8 +359,8 @@ function CreateParticipantTab({ setParticipants }: any) {
         participant_access_pin: '', creation_photo_limit: 10, bonus_creation_photo_slots: 0
       });
       if (fileRef.current) fileRef.current.value = '';
-    } catch (err) {
-      alert('Error creating participant');
+    } catch (err: any) {
+      alert(`Error creating participant: ${err?.message || JSON.stringify(err)}`);
     } finally {
       setUploading(false);
     }

@@ -26,7 +26,7 @@ export const db = {
 
   // Participants
   async getParticipants(): Promise<Participant[]> {
-    const { data, error } = await supabase.from('sdg_camp_youth_participants').select('*');
+    const { data, error } = await supabase.from('sdg_camp_youth_participants').select('*').order('created_at', { ascending: true, nullsFirst: false });
     if (error) {
       console.error("Error fetching participants from Supabase:", error);
       return [];
@@ -65,6 +65,12 @@ export const db = {
       // Remove any placeholder pin so DB handles it or we handle it next
       const tempParticipant = { ...participant };
       delete tempParticipant.id;
+      if (tempParticipant.participant_access_pin === '') tempParticipant.participant_access_pin = 'TEMP_PIN';
+      if (tempParticipant.story === '') delete tempParticipant.story;
+      if (tempParticipant.parent_quote === '') delete tempParticipant.parent_quote;
+      if (tempParticipant.parent_photo_url === '') delete tempParticipant.parent_photo_url;
+      if (tempParticipant.participant_photo_url === '') delete tempParticipant.participant_photo_url;
+      if (!tempParticipant.created_at) tempParticipant.created_at = new Date().toISOString();
       
       const { data, error } = await supabase
         .from('sdg_camp_youth_participants')

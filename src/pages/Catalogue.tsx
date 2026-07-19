@@ -69,7 +69,7 @@ export default function Catalogue() {
       </div>
 
       <div className="mb-12">
-        <h1 className="text-3xl font-bold text-gray-900 mb-4 text-center">Welcome to the Youth Catalogue!</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-4 text-center">Welcome to Youngsters → Youth Catalogue</h1>
         {branding?.founder_note && (
           <div className="max-w-3xl mx-auto bg-white p-6 rounded-2xl shadow-sm border border-gray-100 text-center italic text-gray-700 text-lg mb-6">
             "{branding.founder_note}"
