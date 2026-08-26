@@ -182,7 +182,7 @@ function ApplicationsTab({ participants, setParticipants }: any) {
   
   const handleToggleHide = async (p: Participant) => {
     const isHidden = p.application_status === 'Hidden';
-    const updated = { ...p, application_status: isHidden ? 'Approved' : 'Hidden' };
+    const updated = { ...p, application_status: (isHidden ? 'Approved' : 'Hidden') as any };
     await db.saveParticipant(updated);
     const all = await db.getParticipants();
     setParticipants(all);

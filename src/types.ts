@@ -92,6 +92,17 @@ export interface ConnectionRequest {
   forwarded_at?: string;
 }
 
+export interface ParentDashboardData {
+  participant_id: number;
+  tracks: string[];
+  health_modules: string[];
+  mentor: string;
+  pathway_status: string;
+  pathway_notes: string;
+  pledge: string;
+  whatsapp: string;
+}
+
 export const CATEGORIES = [
   'Recycled Fashion',
   'Solar & Renewable Energy Projects',

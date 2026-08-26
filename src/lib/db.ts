@@ -24,6 +24,25 @@ export const db = {
     localStorage.setItem('youth_branding', JSON.stringify(data));
   },
 
+  async getParentDashboardData(participantId: number): Promise<any> {
+    const data = localStorage.getItem(`parent_dashboard_${participantId}`);
+    if (data) return JSON.parse(data);
+    return {
+      participant_id: participantId,
+      tracks: [],
+      health_modules: [],
+      mentor: '',
+      pathway_status: 'Pending',
+      pathway_notes: '',
+      pledge: "I will use what I learned to teach my little brother how to recycle.",
+      whatsapp: ''
+    };
+  },
+
+  async saveParentDashboardData(data: any): Promise<void> {
+    localStorage.setItem(`parent_dashboard_${data.participant_id}`, JSON.stringify(data));
+  },
+
   // Participants
   async getParticipants(): Promise<Participant[]> {
     const { data, error } = await supabase.from('sdg_camp_youth_participants').select('*').order('created_at', { ascending: true, nullsFirst: false });
@@ -162,13 +181,13 @@ export const db = {
       console.error("Error fetching stories from Supabase:", error);
       return [];
     }
-    return (data as Story[]).sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+    return ((data as Story[]) || []).sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
   },
   
   async getStoriesByParticipant(participantId: number): Promise<Story[]> {
     const { data, error } = await supabase.from('sdg_camp_youth_stories').select('*').eq('participant_id', participantId);
     if (error) return [];
-    return (data as Story[]).sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+    return ((data as Story[]) || []).sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
   },
   
   async saveStory(story: Partial<Story>): Promise<Story | null> {

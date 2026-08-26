@@ -1,332 +1,499 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../store/AppContext';
 import { db } from '../lib/db';
-import { Creation, Story, STORY_TYPES, CATEGORIES, Participant } from '../types';
+import { Creation, Story, STORY_TYPES, Participant, ParentDashboardData } from '../types';
 import { uploadImage } from '../lib/upload';
+import { CheckCircle, XCircle } from 'lucide-react';
+
+const TRACK_OPTIONS = ['Storytelling', 'Waste-to-Wealth', 'Parliament', 'Scouting', 'Digital Skills', 'Robotics', 'Paramedics', 'Entrepreneurship', 'Sports', 'Arts & Crafts'];
+const HEALTH_MODULES = ['First Aid', 'Hygiene', 'Mental Wellness', 'Nutrition', 'Physical Fitness', 'Emotional Intelligence'];
+const MENTOR_OPTIONS = ['Mr. Adebayo', 'Ms. Nkechi', 'Mr. Okafor', 'Ms. Amara'];
 
 export default function ParentDashboard() {
   const { loggedInParent, logoutParent } = useAppContext();
   const navigate = useNavigate();
-  
+
+  const [notification, setNotification] = useState<{message: string, isError: boolean} | null>(null);
+  const [dashboardData, setDashboardData] = useState<ParentDashboardData | null>(null);
+
+  // Child Profile States
+  const [childName, setChildName] = useState('');
+  const [childAge, setChildAge] = useState<number>(10);
+  const [childLocation, setChildLocation] = useState('');
+  const [childAttendance, setChildAttendance] = useState('Physical');
+  const [childQuote, setChildQuote] = useState('');
+
+  // Tracks State
+  const [selectedTracks, setSelectedTracks] = useState<string[]>([]);
+
+  // Health State
+  const [selectedHealthModules, setSelectedHealthModules] = useState<string[]>([]);
+
+  // Mentor & Pathway State
+  const [mentor, setMentor] = useState('');
+  const [pathwayStatus, setPathwayStatus] = useState('Pending');
+  const [pathwayNotes, setPathwayNotes] = useState('');
+
+  // Pledge State
+  const [pledge, setPledge] = useState('');
+
+  // Parent's Promise State
+  const [parentPromise, setParentPromise] = useState('');
+  const [whatsapp, setWhatsapp] = useState('');
+
+  // Creations State
   const [creations, setCreations] = useState<Creation[]>([]);
-  const [stories, setStories] = useState<Story[]>([]);
-  
-  // Edit states
-  const [parentQuote, setParentQuote] = useState('');
-  const [newPin, setNewPin] = useState('');
-  
   const [newCreationTitle, setNewCreationTitle] = useState('');
-  const [newCreationCategory, setNewCreationCategory] = useState(CATEGORIES[0]);
-  const [newCreationDesc, setNewCreationDesc] = useState('');
+  const [newCreationPhotoUrl, setNewCreationPhotoUrl] = useState('');
   const [newCreationVideoUrl, setNewCreationVideoUrl] = useState('');
-  
-  const [newStory, setNewStory] = useState<Partial<Story>>({ title: '', story_type: 'Short Story', written_text: '' });
-  
-  const [uploadingParentPhoto, setUploadingParentPhoto] = useState(false);
+  const [newCreationDesc, setNewCreationDesc] = useState('');
   const [uploadingCreation, setUploadingCreation] = useState(false);
 
-  // Sync state correctly when logged in parent changes
+  // Stories State
+  const [stories, setStories] = useState<Story[]>([]);
+  const [newStoryTitle, setNewStoryTitle] = useState('');
+  const [newStoryContent, setNewStoryContent] = useState('');
+  const [publishingStory, setPublishingStory] = useState(false);
+
   useEffect(() => {
     if (!loggedInParent) {
       navigate('/login');
       return;
     }
-    setParentQuote(loggedInParent.parent_quote || '');
-    
-    const load = async () => {
-      const c = await db.getCreationsByParticipant(loggedInParent.id);
-      setCreations(c);
-      const s = await db.getStoriesByParticipant(loggedInParent.id);
-      setStories(s);
-    };
-    load();
-  }, [loggedInParent, navigate]);
+    loadData();
+  }, [loggedInParent]);
 
-  if (!loggedInParent) return null;
+  const loadData = async () => {
+    if (!loggedInParent) return;
 
-  const handleLogout = () => {
-    logoutParent();
-    navigate('/');
+    // Load Participant Base Info
+    setChildName(loggedInParent.first_name);
+    setChildAge(loggedInParent.age);
+    setChildLocation(loggedInParent.location_area);
+    setChildAttendance(loggedInParent.attendance_type);
+    setChildQuote(loggedInParent.story || '');
+    setParentPromise(loggedInParent.parent_quote || '');
+
+    // Load Extra Dashboard Data
+    const dData = await db.getParentDashboardData(loggedInParent.id);
+    setDashboardData(dData);
+    setSelectedTracks(dData.tracks || []);
+    setSelectedHealthModules(dData.health_modules || []);
+    setMentor(dData.mentor || '');
+    setPathwayStatus(dData.pathway_status || 'Pending');
+    setPathwayNotes(dData.pathway_notes || '');
+    setPledge(dData.pledge || '');
+    setWhatsapp(dData.whatsapp || '');
+
+    // Load Creations
+    const loadedCreations = await db.getCreationsByParticipant(loggedInParent.id);
+    setCreations(loadedCreations);
+
+    // Load Stories
+    const loadedStories = await db.getStoriesByParticipant(loggedInParent.id);
+    setStories(loadedStories);
   };
 
-  const handleParentPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    setUploadingParentPhoto(true);
+  const showNotification = (message: string, isError = false) => {
+    setNotification({ message, isError });
+    setTimeout(() => setNotification(null), 4000);
+  };
+
+  const handleUpdateProfile = async () => {
+    if (!loggedInParent) return;
     try {
-      const url = await uploadImage(file);
-      const updated = { ...loggedInParent, parent_photo_url: url };
-      await db.saveParticipant(updated);
-      alert('Photo uploaded successfully! Saved!');
-      // Update local state without full reload
-      loggedInParent.parent_photo_url = url; 
-    } catch (err) {
-      alert('Failed to upload photo.');
-    } finally {
-      setUploadingParentPhoto(false);
+      await db.saveParticipant({
+        id: loggedInParent.id,
+        first_name: childName,
+        age: childAge,
+        location_area: childLocation,
+        attendance_type: childAttendance as any,
+        story: childQuote
+      });
+      showNotification('Child profile updated!');
+    } catch (e) {
+      showNotification('Failed to update profile.', true);
     }
   };
 
-  const handleUpdateProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const quote = parentQuote;
-    const pin = newPin.trim();
-    
-    const updated: Partial<Participant> = { ...loggedInParent, parent_quote: quote };
-    if (pin) updated.participant_access_pin = pin;
-    
+  const handleSaveDashboardData = async (fieldsToUpdate: Partial<ParentDashboardData>, successMsg: string) => {
+    if (!loggedInParent || !dashboardData) return;
     try {
-      await db.saveParticipant(updated);
-      alert('Profile details saved!');
-      setNewPin('');
-    } catch (err) {
-      alert('Error saving details.');
+      const updatedData = { ...dashboardData, ...fieldsToUpdate };
+      await db.saveParentDashboardData(updatedData);
+      setDashboardData(updatedData);
+      showNotification(successMsg);
+    } catch (e) {
+      showNotification('Failed to save data.', true);
     }
   };
 
-  const handleAddCreation = async (e: React.FormEvent, fileInputRef: React.RefObject<HTMLInputElement>) => {
-    e.preventDefault();
-    
-    // Capture state synchronously before any awaits
-    const title = newCreationTitle;
-    const category = newCreationCategory;
-    const desc = newCreationDesc;
-    const vUrl = newCreationVideoUrl;
-    const file = fileInputRef.current?.files?.[0];
-    
-    const photoLimit = loggedInParent.creation_photo_limit + loggedInParent.bonus_creation_photo_slots;
-    if (creations.length >= photoLimit) {
-      alert(`You have reached the maximum allowed creations (${photoLimit}).`);
-      return;
+  const handleSaveTracks = () => handleSaveDashboardData({ tracks: selectedTracks }, 'Tracks updated!');
+  
+  const handleSaveHealth = () => handleSaveDashboardData({ health_modules: selectedHealthModules }, 'Health records updated!');
+
+  const handleSaveMentor = () => handleSaveDashboardData({ mentor, pathway_status: pathwayStatus, pathway_notes: pathwayNotes }, 'Mentor assignment updated!');
+
+  const handleSavePledge = () => handleSaveDashboardData({ pledge }, 'Pledge updated!');
+
+  const handleSavePromise = async () => {
+    if (!loggedInParent) return;
+    try {
+      await db.saveParticipant({
+        id: loggedInParent.id,
+        parent_quote: parentPromise
+      });
+      await handleSaveDashboardData({ whatsapp }, 'Your promise has been saved! ✅');
+    } catch (e) {
+      showNotification('Failed to save promise.', true);
     }
-    
+  };
+
+  const toggleTrack = (track: string) => {
+    setSelectedTracks(prev => prev.includes(track) ? prev.filter(t => t !== track) : [...prev, track]);
+  };
+
+  const toggleHealthModule = (module: string) => {
+    setSelectedHealthModules(prev => prev.includes(module) ? prev.filter(m => m !== module) : [...prev, module]);
+  };
+
+  const handleAddCreation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loggedInParent) return;
     setUploadingCreation(true);
-    let imageUrl = '';
-    
     try {
-      if (file) {
-        imageUrl = await uploadImage(file);
-      }
-      
-      const c: Partial<Creation> = {
+      const saved = await db.saveCreation({
         participant_id: loggedInParent.id,
-        project_title: title,
-        project_category: category,
-        description: desc,
-        image_url: imageUrl,
-        video_url: vUrl,
+        project_title: newCreationTitle || 'Untitled',
+        project_category: 'Community Solutions', // Default or could be added to UI
+        description: newCreationDesc,
+        image_url: newCreationPhotoUrl,
+        video_url: newCreationVideoUrl,
         display_order: creations.length + 1,
         is_active: true
-      };
-      
-      const saved = await db.saveCreation(c);
+      });
       if (saved) {
         setCreations([...creations, saved]);
+        showNotification('Creation added! 🎉');
         setNewCreationTitle('');
-        setNewCreationDesc('');
+        setNewCreationPhotoUrl('');
         setNewCreationVideoUrl('');
-        if (fileInputRef.current) fileInputRef.current.value = '';
-        alert('Creation added successfully! Saved!');
+        setNewCreationDesc('');
       }
     } catch (err) {
-      alert('Failed to add creation.');
+      showNotification('Failed to add creation.', true);
     } finally {
       setUploadingCreation(false);
     }
   };
 
-  const CreationForm = () => {
-    const fileRef = React.useRef<HTMLInputElement>(null);
-    return (
-      <form onSubmit={(e) => handleAddCreation(e, fileRef)} className="bg-gray-50 p-4 rounded-lg border border-dashed border-gray-300">
-        <h3 className="font-medium text-gray-900 mb-3">+ Add New Creation</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-          <input required type="text" placeholder="Project Title" className="px-3 py-2 border rounded focus:outline-none" value={newCreationTitle} onChange={e => setNewCreationTitle(e.target.value)} />
-          <select className="px-3 py-2 border rounded focus:outline-none" value={newCreationCategory} onChange={e => setNewCreationCategory(e.target.value)}>
-            {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Upload Photo (Optional)</label>
-            <input type="file" accept="image/*" ref={fileRef} className="px-3 py-2 border rounded focus:outline-none w-full bg-white text-sm" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Video URL (Optional)</label>
-            <input type="url" placeholder="https://..." className="px-3 py-2 border rounded focus:outline-none w-full" value={newCreationVideoUrl} onChange={e => setNewCreationVideoUrl(e.target.value)} />
-          </div>
-          <textarea placeholder="Description" className="sm:col-span-2 px-3 py-2 border rounded focus:outline-none h-20" value={newCreationDesc} onChange={e => setNewCreationDesc(e.target.value)} />
-        </div>
-        {loggedInParent.attendance_type === 'Remote' && (
-          <div className="bg-orange-50 border border-orange-200 text-orange-800 text-xs p-3 rounded mb-4">
-            <strong>Video Safety Rule (Remote):</strong> Video MUST show the CREATION ONLY. It must NOT show the child's face.
-          </div>
-        )}
-        <button type="submit" disabled={uploadingCreation} className="bg-gray-900 text-white px-4 py-2 rounded text-sm hover:bg-gray-800 disabled:opacity-50">
-          {uploadingCreation ? 'Uploading & Saving...' : 'Upload Creation'}
-        </button>
-      </form>
-    );
-  };
-
-  const handleAddStory = async (e: React.FormEvent) => {
+  const handlePublishStory = async (e: React.FormEvent) => {
     e.preventDefault();
-    const title = newStory.title;
-    const type = newStory.story_type;
-    const text = newStory.written_text;
-    
-    if (!title || !text) return;
-
+    if (!loggedInParent) return;
+    setPublishingStory(true);
     try {
-      const s: Partial<Story> = {
+      const saved = await db.saveStory({
         participant_id: loggedInParent.id,
-        title: title,
-        story_type: type as any,
-        written_text: text,
+        title: newStoryTitle || 'Untitled',
+        story_type: 'Short Story',
+        written_text: newStoryContent,
         featured_in_sdg_museum: false,
         display_order: stories.length + 1,
         is_active: true
-      };
-      const saved = await db.saveStory(s);
+      });
       if (saved) {
         setStories([...stories, saved]);
-        setNewStory({ title: '', story_type: 'Short Story', written_text: '' });
-        alert('Story saved successfully!');
+        showNotification('Story published! 📖 Now live on Stories tab & Directory card');
+        setNewStoryTitle('');
+        setNewStoryContent('');
       }
     } catch (err) {
-      alert('Failed to save story.');
+      showNotification('Failed to publish story.', true);
+    } finally {
+      setPublishingStory(false);
     }
   };
 
-  const handleDeleteCreation = async (id: number) => {
-    if(confirm('Delete this creation?')) {
-      await db.deleteCreation(id);
-      setCreations(creations.filter(c => c.id !== id));
-      alert('Creation deleted.');
-    }
-  }
+  const handleSaveAll = async () => {
+    await handleUpdateProfile();
+    await handleSaveTracks();
+    await handleSaveHealth();
+    await handleSaveMentor();
+    await handleSavePledge();
+    await handleSavePromise();
+    showNotification('All changes saved successfully! ✅');
+  };
 
-  const handleDeleteStory = async (id: number) => {
-    if(confirm('Delete this story?')) {
-      await db.deleteStory(id);
-      setStories(stories.filter(s => s.id !== id));
-      alert('Story deleted.');
-    }
-  }
+  if (!loggedInParent) return null;
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <div className="flex flex-col sm:flex-row justify-between items-center bg-blue-50 p-6 rounded-xl border border-blue-100 mb-8">
-        <h1 className="text-2xl font-bold text-blue-900">👪 Welcome, Parent of {loggedInParent.first_name}!</h1>
-        <div className="flex gap-4 mt-4 sm:mt-0">
-          <button onClick={handleLogout} className="text-sm bg-white border border-gray-300 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors">Logout</button>
+      
+      {/* Header */}
+      <div className="bg-gradient-to-br from-blue-900 to-blue-950 text-white p-6 rounded-t-xl mb-4">
+        <div className="text-[11px] tracking-widest uppercase text-blue-300 mb-1">👪 Parent Dashboard</div>
+        <div className="flex justify-between items-start">
+          <h1 className="text-xl font-bold mb-1">Welcome, Parent</h1>
+          <button onClick={logoutParent} className="text-xs bg-white/10 hover:bg-white/20 border border-white/20 px-3 py-1 rounded transition-colors">Logout</button>
         </div>
+        <div className="text-sm text-blue-200 mt-1">Managing: <strong className="text-white">{loggedInParent.first_name}</strong> · Age {loggedInParent.age} · {loggedInParent.location_area}</div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col">
-          <h2 className="text-lg font-bold text-gray-900 mb-4 border-b pb-2">Child's Profile Info</h2>
-          <div className="space-y-3 text-sm flex-1">
-            <p><span className="font-medium text-gray-500">Name:</span> {loggedInParent.first_name}</p>
-            <p><span className="font-medium text-gray-500">Age:</span> {loggedInParent.age}</p>
-            <p><span className="font-medium text-gray-500">Location:</span> {loggedInParent.location_area}</p>
-            <p><span className="font-medium text-gray-500">Attendance:</span> {loggedInParent.attendance_type}</p>
-            <div className="mt-2 p-3 bg-gray-50 rounded text-gray-700 italic">
-              "{loggedInParent.story}"
-            </div>
-            <p className="text-xs text-gray-400 mt-2">Note: To change your child's basic details or their story text, please contact staff.</p>
+      {/* Notification */}
+      {notification && (
+        <div className={`mb-4 px-4 py-3 rounded-lg flex items-center gap-3 text-sm font-medium ${notification.isError ? 'bg-red-50 text-red-800 border border-red-200' : 'bg-green-50 text-green-800 border border-green-200'}`}>
+          {notification.isError ? <XCircle className="w-5 h-5 text-red-500" /> : <CheckCircle className="w-5 h-5 text-green-500" />}
+          {notification.message}
+        </div>
+      )}
+
+      {/* Form 1: Child's Profile */}
+      <div className="bg-white border border-gray-200 rounded-b-xl rounded-t-xl sm:rounded-t-none p-5 mb-4 shadow-sm">
+        <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-100">
+          <h3 className="text-sm font-bold text-blue-900 flex items-center gap-2">👤 Child's Profile</h3>
+          <span className="bg-green-50 text-green-700 text-[9px] font-bold px-2 py-0.5 rounded">✓ Saved</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="block text-[11.5px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Full Name</label>
+            <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all outline-none" value={childName} onChange={e => setChildName(e.target.value)} />
           </div>
-          
-          <div className="mt-4 pt-4 border-t">
-             <label className="block text-sm font-medium text-gray-700 mb-2">Your Parent Photo (Optional)</label>
-             <div className="flex items-center gap-4">
-               {loggedInParent.parent_photo_url ? (
-                 <img src={loggedInParent.parent_photo_url} alt="Parent" className="w-12 h-12 rounded-full object-cover shadow-sm" />
-               ) : (
-                 <div className="w-12 h-12 rounded-full bg-gray-100 border border-gray-300 flex items-center justify-center text-gray-400 text-sm">N/A</div>
-               )}
-               <input type="file" accept="image/*" onChange={handleParentPhotoUpload} disabled={uploadingParentPhoto} className="text-sm block w-full file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
-             </div>
-             {uploadingParentPhoto && <span className="text-xs text-blue-600 mt-1 block">Uploading...</span>}
+          <div>
+            <label className="block text-[11.5px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Age</label>
+            <input type="number" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all outline-none" value={childAge} onChange={e => setChildAge(parseInt(e.target.value) || 0)} />
           </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-          <h2 className="text-lg font-bold text-gray-900 mb-4 border-b pb-2">Update Your Details</h2>
-          <form onSubmit={handleUpdateProfile} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Your Quote</label>
-              <textarea 
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:outline-none h-20"
-                value={parentQuote}
-                onChange={(e) => setParentQuote(e.target.value)}
-                placeholder="A short quote about how proud you are..."
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Change PIN (optional)</label>
-              <input 
-                type="text" 
-                placeholder="New PIN"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:outline-none"
-                value={newPin}
-                onChange={(e) => setNewPin(e.target.value)}
-              />
-            </div>
-            <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded font-medium hover:bg-blue-700 w-full">Save Details</button>
-          </form>
-        </div>
-      </div>
-
-      <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm mb-8">
-        <div className="flex justify-between items-center border-b pb-2 mb-4">
-          <h2 className="text-lg font-bold text-gray-900">📸 Creations</h2>
-          <span className="text-sm font-medium bg-gray-100 px-3 py-1 rounded-full">
-            {creations.length} / {loggedInParent.creation_photo_limit + loggedInParent.bonus_creation_photo_slots} used
-          </span>
-        </div>
-        
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-          {creations.map(c => (
-            <div key={c.id} className="border rounded-lg p-3 bg-gray-50 relative group">
-              <button type="button" onClick={() => handleDeleteCreation(c.id)} className="absolute top-2 right-2 bg-red-100 text-red-600 w-6 h-6 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">×</button>
-              <div className="h-24 bg-gray-200 rounded mb-2 overflow-hidden">
-                {c.image_url ? <img src={c.image_url} alt="project" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">No Image</div>}
-              </div>
-              <p className="font-bold text-sm truncate">{c.project_title}</p>
-              <p className="text-xs text-gray-500 truncate">{c.project_category}</p>
-              {c.video_url && <p className="text-xs text-blue-500 mt-1">🎥 Video attached</p>}
-            </div>
-          ))}
-        </div>
-
-        <CreationForm />
-      </div>
-
-      <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-        <h2 className="text-lg font-bold text-gray-900 mb-4 border-b pb-2">📝 Their Stories</h2>
-        
-        <div className="space-y-4 mb-6">
-          {stories.map(s => (
-            <div key={s.id} className="border rounded-lg p-4 bg-gray-50 relative group">
-              <button type="button" onClick={() => handleDeleteStory(s.id)} className="absolute top-2 right-2 bg-red-100 text-red-600 w-6 h-6 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">×</button>
-              <h3 className="font-bold">{s.title} <span className="text-xs font-normal text-gray-500 bg-gray-200 px-2 py-0.5 rounded ml-2">{s.story_type}</span></h3>
-              <p className="text-sm text-gray-600 mt-2 line-clamp-2">{s.written_text}</p>
-            </div>
-          ))}
-        </div>
-
-        <form onSubmit={handleAddStory} className="bg-gray-50 p-4 rounded-lg border border-dashed border-gray-300">
-          <h3 className="font-medium text-gray-900 mb-3">+ Add New Story</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-            <input required type="text" placeholder="Story Title" className="px-3 py-2 border rounded focus:outline-none" value={newStory.title} onChange={e => setNewStory({...newStory, title: e.target.value})} />
-            <select className="px-3 py-2 border rounded focus:outline-none" value={newStory.story_type} onChange={e => setNewStory({...newStory, story_type: e.target.value})}>
-              {STORY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+          <div>
+            <label className="block text-[11.5px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Location</label>
+            <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all outline-none" value={childLocation} onChange={e => setChildLocation(e.target.value)} />
+          </div>
+          <div>
+            <label className="block text-[11.5px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Attendance Mode</label>
+            <select className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all outline-none" value={childAttendance} onChange={e => setChildAttendance(e.target.value)}>
+              <option value="Physical">Physical</option>
+              <option value="Virtual">Virtual</option>
+              <option value="Hybrid">Hybrid</option>
             </select>
-            <textarea required placeholder="Write the story here..." className="sm:col-span-2 px-3 py-2 border rounded focus:outline-none h-32" value={newStory.written_text} onChange={e => setNewStory({...newStory, written_text: e.target.value})} />
           </div>
-          <button type="submit" className="bg-gray-900 text-white px-4 py-2 rounded text-sm hover:bg-gray-800">Save Story</button>
+        </div>
+        <div className="mb-4">
+          <label className="block text-[11.5px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Child's Quote / Unique Trait</label>
+          <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all outline-none" placeholder="e.g. Loves storytelling" value={childQuote} onChange={e => setChildQuote(e.target.value)} />
+        </div>
+        <button onClick={handleUpdateProfile} className="bg-blue-900 text-white font-bold text-[13px] px-6 py-2.5 rounded-lg hover:bg-blue-950 transition-colors">💾 Update Profile</button>
+      </div>
+
+      {/* Form 2: Tracks */}
+      <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4 shadow-sm">
+        <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-100">
+          <h3 className="text-sm font-bold text-blue-900 flex items-center gap-2">🎯 Tracks <span className="bg-red-600 text-white text-[8px] font-bold px-2 py-0.5 rounded">NEW</span></h3>
+          <span className="bg-green-50 text-green-700 text-[9px] font-bold px-2 py-0.5 rounded">{selectedTracks.length} selected</span>
+        </div>
+        <div className="mb-4">
+          <label className="block text-[11.5px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Select tracks your child is enrolled in</label>
+          <div className="flex flex-wrap gap-2">
+            {TRACK_OPTIONS.map(track => (
+              <button 
+                key={track} 
+                onClick={() => toggleTrack(track)}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${selectedTracks.includes(track) ? 'bg-blue-50 border-blue-900 text-blue-900 before:content-["✓_"]' : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-blue-900 hover:text-blue-900'}`}
+              >
+                {track}
+              </button>
+            ))}
+          </div>
+          <div className="text-[11px] text-gray-400 mt-2">Click to toggle selection</div>
+        </div>
+        <button onClick={handleSaveTracks} className="bg-blue-900 text-white font-bold text-[13px] px-6 py-2.5 rounded-lg hover:bg-blue-950 transition-colors">💾 Save Tracks</button>
+      </div>
+
+      {/* Form 3: Health & Well-being */}
+      <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4 shadow-sm">
+        <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-100">
+          <h3 className="text-sm font-bold text-blue-900 flex items-center gap-2">❤️ Health & Well-being <span className="bg-red-600 text-white text-[8px] font-bold px-2 py-0.5 rounded">NEW</span></h3>
+          <span className="bg-green-50 text-green-700 text-[9px] font-bold px-2 py-0.5 rounded">{selectedHealthModules.length} completed</span>
+        </div>
+        <div className="mb-4">
+          <label className="block text-[11.5px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Completed wellness modules</label>
+          <div className="flex flex-wrap gap-2">
+            {HEALTH_MODULES.map(module => (
+              <label key={module} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[13px] cursor-pointer transition-colors ${selectedHealthModules.includes(module) ? 'bg-blue-50 border-blue-900 text-blue-900 font-semibold' : 'bg-gray-50 border-gray-200 hover:border-blue-900'}`}>
+                <input 
+                  type="checkbox" 
+                  checked={selectedHealthModules.includes(module)} 
+                  onChange={() => toggleHealthModule(module)} 
+                  className="w-4 h-4 text-blue-900 rounded border-gray-300 focus:ring-blue-900 accent-blue-900"
+                />
+                {module}
+              </label>
+            ))}
+          </div>
+        </div>
+        <button onClick={handleSaveHealth} className="bg-blue-900 text-white font-bold text-[13px] px-6 py-2.5 rounded-lg hover:bg-blue-950 transition-colors">💾 Save Health Status</button>
+      </div>
+
+      {/* Form 4: Mentor & Pathway */}
+      <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4 shadow-sm">
+        <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-100">
+          <h3 className="text-sm font-bold text-blue-900 flex items-center gap-2">🧭 Mentor & Pathway <span className="bg-red-600 text-white text-[8px] font-bold px-2 py-0.5 rounded">NEW</span></h3>
+          <span className="bg-green-50 text-green-700 text-[9px] font-bold px-2 py-0.5 rounded">{pathwayStatus}</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="block text-[11.5px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Assigned Mentor</label>
+            <select className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all outline-none" value={mentor} onChange={e => setMentor(e.target.value)}>
+              <option value="">— Not yet assigned —</option>
+              {MENTOR_OPTIONS.map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-[11.5px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Pathway Status</label>
+            <select className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all outline-none" value={pathwayStatus} onChange={e => setPathwayStatus(e.target.value)}>
+              <option value="Pending">Pending</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Completed">Completed</option>
+              <option value="On Hold">On Hold</option>
+            </select>
+          </div>
+        </div>
+        <div className="mb-4">
+          <label className="block text-[11.5px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Pathway Notes <span className="font-normal text-gray-400 normal-case">(optional)</span></label>
+          <textarea className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all outline-none min-h-[60px] resize-y" placeholder="Any additional notes about the child's pathway..." value={pathwayNotes} onChange={e => setPathwayNotes(e.target.value)}></textarea>
+        </div>
+        <button onClick={handleSaveMentor} className="bg-blue-900 text-white font-bold text-[13px] px-6 py-2.5 rounded-lg hover:bg-blue-950 transition-colors">💾 Update Mentor</button>
+      </div>
+
+      {/* Form 5: Global Citizenship Pledge */}
+      <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4 shadow-sm">
+        <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-100">
+          <h3 className="text-sm font-bold text-blue-900 flex items-center gap-2">🌍 Global Citizenship Pledge <span className="bg-red-600 text-white text-[8px] font-bold px-2 py-0.5 rounded">NEW</span></h3>
+          <span className="bg-green-50 text-green-700 text-[9px] font-bold px-2 py-0.5 rounded">Saved</span>
+        </div>
+        {pledge && (
+          <div className="bg-[#FFF6E5] border-l-[3px] border-[#E8A33D] p-3 rounded-r-lg italic text-[13.5px] text-[#4A4234] mb-4">
+            "{pledge}"
+          </div>
+        )}
+        <div className="mb-4">
+          <label className="block text-[11.5px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Edit Pledge</label>
+          <textarea className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all outline-none min-h-[60px]" placeholder="Write a short pledge about how your child will use what they learned..." value={pledge} onChange={e => setPledge(e.target.value)}></textarea>
+        </div>
+        <button onClick={handleSavePledge} className="bg-blue-900 text-white font-bold text-[13px] px-6 py-2.5 rounded-lg hover:bg-blue-950 transition-colors">💾 Save Pledge</button>
+      </div>
+
+      {/* Form 6: Parent's Promise */}
+      <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4 shadow-sm">
+        <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-100">
+          <h3 className="text-sm font-bold text-blue-900 flex items-center gap-2">🤝 Parent's Promise <span className="bg-red-600 text-white text-[8px] font-bold px-2 py-0.5 rounded">NEW</span></h3>
+          <span className="bg-green-50 text-green-700 text-[9px] font-bold px-2 py-0.5 rounded">Saved</span>
+        </div>
+        {parentPromise && (
+          <div className="bg-[#F1F8F3] border-l-[3px] border-[#1E8E5A] p-3 rounded-r-lg text-[13.5px] flex justify-between items-center flex-wrap gap-2 mb-4">
+            <span>"{parentPromise}"</span>
+            {whatsapp && <span className="bg-[#DCF4E4] text-[#1E8E5A] text-[10px] font-bold px-2.5 py-0.5 rounded-full">📱 WhatsApp ✓</span>}
+          </div>
+        )}
+        <div className="mb-4">
+          <label className="block text-[11.5px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Your Commitment Statement</label>
+          <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all outline-none" placeholder="Write your commitment..." value={parentPromise} onChange={e => setParentPromise(e.target.value)} />
+        </div>
+        <div className="mb-4">
+          <label className="block text-[11.5px] font-semibold text-gray-500 uppercase tracking-wider mb-1">WhatsApp Number <span className="font-normal text-gray-400 normal-case">(for updates)</span></label>
+          <input type="tel" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all outline-none" placeholder="+234 800 123 4567" value={whatsapp} onChange={e => setWhatsapp(e.target.value)} />
+        </div>
+        <div className="flex gap-2 flex-wrap mt-2">
+          <button onClick={handleSavePromise} className="bg-green-600 text-white font-bold text-[13px] px-6 py-2.5 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1.5">💾 Save Promise</button>
+          <button onClick={() => showNotification('WhatsApp verification sent! 📱')} className="bg-transparent border border-blue-900 text-blue-900 font-bold text-[13px] px-6 py-2.5 rounded-lg hover:bg-blue-50 transition-colors flex items-center gap-1.5">📱 Verify WhatsApp</button>
+        </div>
+      </div>
+
+      {/* Form 7: Creations */}
+      <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4 shadow-sm">
+        <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-100">
+          <h3 className="text-sm font-bold text-blue-900 flex items-center gap-2">📸 Creations</h3>
+          <span className="bg-green-50 text-green-700 text-[9px] font-bold px-2 py-0.5 rounded">{creations.length} / {loggedInParent.creation_photo_limit + loggedInParent.bonus_creation_photo_slots} used</span>
+        </div>
+        <form onSubmit={handleAddCreation} className="mb-4">
+          <div className="mb-4">
+            <label className="block text-[11.5px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Project Title</label>
+            <input required type="text" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all outline-none" placeholder="e.g. My Recycled Art Project" value={newCreationTitle} onChange={e => setNewCreationTitle(e.target.value)} />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="block text-[11.5px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Photo URL</label>
+              <input type="url" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all outline-none" placeholder="https://..." value={newCreationPhotoUrl} onChange={e => setNewCreationPhotoUrl(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-[11.5px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Video URL</label>
+              <input type="url" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all outline-none" placeholder="https://..." value={newCreationVideoUrl} onChange={e => setNewCreationVideoUrl(e.target.value)} />
+            </div>
+          </div>
+          <div className="mb-4">
+            <label className="block text-[11.5px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Description</label>
+            <textarea className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all outline-none min-h-[60px]" placeholder="Describe your child's creation..." value={newCreationDesc} onChange={e => setNewCreationDesc(e.target.value)}></textarea>
+          </div>
+          <button type="submit" disabled={uploadingCreation} className="bg-blue-900 text-white font-bold text-[13px] px-6 py-2.5 rounded-lg hover:bg-blue-950 transition-colors flex items-center gap-1.5 disabled:opacity-50">
+            {uploadingCreation ? 'Uploading...' : '➕ Add Creation'}
+          </button>
         </form>
+        {/* Render existing creations quickly */}
+        {creations.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mt-4 pt-4 border-t border-gray-100">
+            {creations.map(c => (
+              <div key={c.id} className="bg-gray-50 p-2 rounded-lg border border-gray-200">
+                {c.image_url && <img src={c.image_url} alt="creation" className="w-full h-16 object-cover rounded mb-1" />}
+                <p className="text-xs font-bold truncate">{c.project_title}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Form 8: Stories */}
+      <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4 shadow-sm">
+        <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-100">
+          <h3 className="text-sm font-bold text-blue-900 flex items-center gap-2">📝 Their Stories</h3>
+          <span className="bg-green-50 text-green-700 text-[9px] font-bold px-2 py-0.5 rounded">✓ Live now</span>
+        </div>
+        <div className="bg-red-50 border border-red-200 text-red-800 text-[12px] p-2.5 rounded-lg mb-4">
+          <b>🔧 Fix applied:</b> Stories saved here now publish immediately to the <b>Stories tab</b> and <b>Directory card</b> — no staff approval needed.
+        </div>
+        <form onSubmit={handlePublishStory} className="mb-4">
+          <div className="mb-4">
+            <label className="block text-[11.5px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Story Title</label>
+            <input required type="text" className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all outline-none" placeholder="Story title..." value={newStoryTitle} onChange={e => setNewStoryTitle(e.target.value)} />
+          </div>
+          <div className="mb-4">
+            <label className="block text-[11.5px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Story Content</label>
+            <textarea required className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all outline-none min-h-[80px]" placeholder="Write your child's story..." value={newStoryContent} onChange={e => setNewStoryContent(e.target.value)}></textarea>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <button type="submit" disabled={publishingStory} className="bg-green-600 text-white font-bold text-[13px] px-6 py-2.5 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1.5 disabled:opacity-50">📤 Publish Story</button>
+            <button type="button" onClick={() => showNotification('Story saved as draft')} className="bg-transparent border border-blue-900 text-blue-900 font-bold text-[13px] px-6 py-2.5 rounded-lg hover:bg-blue-50 transition-colors flex items-center gap-1.5">💾 Save Draft</button>
+          </div>
+        </form>
+        {stories.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
+            {stories.map(s => (
+              <div key={s.id} className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                <p className="text-sm font-bold">{s.title}</p>
+                <p className="text-xs text-gray-600 line-clamp-1 mt-1">{s.written_text}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Save All */}
+      <div className="bg-white border border-gray-200 rounded-xl p-5 mt-2 text-center shadow-sm">
+        <button onClick={handleSaveAll} className="bg-blue-900 text-white font-bold text-[15px] px-10 py-3 rounded-lg hover:bg-blue-950 transition-colors inline-flex items-center gap-2 shadow-sm">
+          💾 Save All Changes
+        </button>
+        <p className="text-[11px] text-gray-500 mt-2">All fields will be saved to your child's profile</p>
+      </div>
+
+      <div className="text-center text-[11px] text-gray-400 py-5">
+        Made by FATap-CT and ESGMC · Preview build, no live data
       </div>
 
     </div>

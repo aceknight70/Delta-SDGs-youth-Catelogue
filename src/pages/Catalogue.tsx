@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, MapPin } from 'lucide-react';
 import { db } from '../lib/db';
-import { Participant, Creation, CATEGORIES } from '../types';
+import { Participant, Creation, CATEGORIES, Story } from '../types';
 import { useAppContext } from '../store/AppContext';
 
 export default function Catalogue() {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [creations, setCreations] = useState<Creation[]>([]);
+  const [stories, setStories] = useState<Story[]>([]);
   const [approvedCount, setApprovedCount] = useState(0);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -24,6 +25,9 @@ export default function Catalogue() {
       
       const allC = await db.getAllCreations();
       setCreations(allC);
+      
+      const allS = await db.getStories();
+      setStories(allS);
       
       const count = await db.getApprovedCount();
       setApprovedCount(count);
@@ -63,9 +67,20 @@ export default function Catalogue() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       
-      <div className="bg-yellow-50 text-yellow-800 p-4 rounded-xl flex items-center justify-center gap-3 mb-8 border border-yellow-200 shadow-sm">
-        <span className="text-2xl">🌟</span>
-        <span className="font-semibold text-lg">{approvedCount} young innovators showcased this year</span>
+      <div className="flex flex-col gap-3 mb-8">
+        <div className="bg-yellow-50 text-yellow-800 p-4 rounded-xl flex items-center justify-center gap-3 border border-yellow-200 shadow-sm">
+          <span className="text-2xl">🌟</span>
+          <span className="font-semibold text-lg">{approvedCount} young innovators showcased this year</span>
+        </div>
+        
+        {stories.filter(s => s.is_active !== false).length > 0 && (
+          <Link to="/stories" className="bg-purple-50 text-purple-800 p-4 rounded-xl flex items-center justify-center gap-3 border border-purple-200 shadow-sm hover:bg-purple-100 transition-colors">
+            <span className="text-2xl">🎬</span>
+            <span className="font-semibold text-lg">
+              {stories.filter(s => s.is_active !== false).length} incredible stor{stories.filter(s => s.is_active !== false).length === 1 ? 'y' : 'ies'} written fit for a Nollywood Short Film presentation! Click to read.
+            </span>
+          </Link>
+        )}
       </div>
 
       <div className="mb-12">
@@ -144,6 +159,17 @@ export default function Catalogue() {
                 <span>{p.location_area}</span>
               </div>
 
+              {(() => {
+                const pStories = stories.filter(s => s.participant_id === p.id && s.is_active !== false);
+                return pStories.length > 0 && (
+                  <div className="mb-4">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-50 text-green-700 text-xs font-bold rounded-full border border-green-200">
+                      📝 {pStories.length} Published Stor{pStories.length > 1 ? 'ies' : 'y'}
+                    </span>
+                  </div>
+                );
+              })()}
+
               {p.story && <p className="text-sm text-gray-600 line-clamp-3 mb-4">{p.story}</p>}
 
               {(p.sdg_goal_focus || p.supported_by) && (
@@ -162,6 +188,11 @@ export default function Catalogue() {
                 <Link to={`/child/${p.id}`} className="w-full flex items-center justify-center gap-2 bg-blue-50 text-blue-600 font-medium py-2 rounded-lg hover:bg-blue-100 transition-colors">
                   <span className="text-lg">👁️</span> View Details
                 </Link>
+                {stories.filter(s => s.participant_id === p.id && s.is_active !== false).length > 0 && (
+                  <Link to={`/child/${p.id}`} className="w-full flex items-center justify-center gap-2 bg-green-50 text-green-700 font-medium py-2 rounded-lg hover:bg-green-100 transition-colors">
+                    <span className="text-lg">📖</span> Read Story
+                  </Link>
+                )}
               </div>
             </div>
           </div>
