@@ -215,6 +215,28 @@ export default function ParentDashboard() {
     }
   };
 
+  const handleDeleteCreation = async (id: number) => {
+    if (!window.confirm("Are you sure you want to delete this creation?")) return;
+    try {
+      await db.deleteCreation(id);
+      setCreations(creations.filter(c => c.id !== id));
+      showNotification('Creation deleted successfully.');
+    } catch (err) {
+      showNotification('Failed to delete creation.', true);
+    }
+  };
+
+  const handleDeleteStory = async (id: number) => {
+    if (!window.confirm("Are you sure you want to delete this story?")) return;
+    try {
+      await db.deleteStory(id);
+      setStories(stories.filter(s => s.id !== id));
+      showNotification('Story deleted successfully.');
+    } catch (err) {
+      showNotification('Failed to delete story.', true);
+    }
+  };
+
   const handleSaveAll = async () => {
     await handleUpdateProfile();
     await handleSaveTracks();
@@ -440,9 +462,15 @@ export default function ParentDashboard() {
         {creations.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mt-4 pt-4 border-t border-gray-100">
             {creations.map(c => (
-              <div key={c.id} className="bg-gray-50 p-2 rounded-lg border border-gray-200">
+              <div key={c.id} className="bg-gray-50 p-2 rounded-lg border border-gray-200 flex flex-col">
                 {c.image_url && <img src={c.image_url} alt="creation" className="w-full h-16 object-cover rounded mb-1" />}
-                <p className="text-xs font-bold truncate">{c.project_title}</p>
+                <p className="text-xs font-bold truncate flex-1">{c.project_title}</p>
+                <button 
+                  onClick={() => handleDeleteCreation(c.id)}
+                  className="mt-2 w-full flex items-center justify-center gap-1 bg-red-50 text-red-600 hover:bg-red-500 hover:text-white border border-red-100 rounded py-1 text-[11px] font-medium transition-colors"
+                >
+                  <XCircle className="w-3 h-3" /> Delete
+                </button>
               </div>
             ))}
           </div>
@@ -473,11 +501,26 @@ export default function ParentDashboard() {
           </div>
         </form>
         {stories.length > 0 && (
-          <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
+          <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
             {stories.map(s => (
-              <div key={s.id} className="bg-gray-50 p-3 rounded-lg border border-gray-200">
-                <p className="text-sm font-bold">{s.title}</p>
-                <p className="text-xs text-gray-600 line-clamp-1 mt-1">{s.written_text}</p>
+              <div key={s.id} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <div className="flex justify-between items-start mb-2">
+                  <p className="text-sm font-bold pr-2">{s.title}</p>
+                  {s.created_at && (
+                    <span className="text-[10px] font-medium text-gray-500 bg-gray-200/50 px-2 py-0.5 rounded shrink-0">
+                      {new Date(s.created_at).toLocaleDateString()} {new Date(s.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-gray-600 line-clamp-3 whitespace-pre-wrap">{s.written_text}</p>
+                <div className="mt-3 flex justify-end">
+                  <button 
+                    onClick={() => handleDeleteStory(s.id)}
+                    className="flex items-center gap-1.5 bg-red-50 text-red-600 hover:bg-red-500 hover:text-white border border-red-100 rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
+                  >
+                    <XCircle className="w-3.5 h-3.5" /> Delete Story
+                  </button>
+                </div>
               </div>
             ))}
           </div>
