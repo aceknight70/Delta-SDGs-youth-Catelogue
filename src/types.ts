@@ -38,7 +38,7 @@ export interface Creation {
   updated_at?: string;
 }
 
-export type StoryType = 'Short Story' | 'Poem' | 'Novel Excerpt' | 'Personal Reflection';
+export type StoryType = 'Short Story' | 'Poem' | 'Novel Excerpt' | 'Personal Reflection' | 'Descriptive Essay' | 'Narrative Essay' | 'Story for Selection' | 'Argumentative Essay' | 'Expository Essay' | 'Formal Letter' | 'Illustration';
 
 export interface Story {
   id: number;
@@ -119,5 +119,7 @@ export const CATEGORIES = [
 ];
 
 export const STORY_TYPES: StoryType[] = [
-  'Short Story', 'Poem', 'Novel Excerpt', 'Personal Reflection'
+  'Short Story', 'Poem', 'Novel Excerpt', 'Personal Reflection',
+  'Descriptive Essay', 'Narrative Essay', 'Story for Selection',
+  'Argumentative Essay', 'Expository Essay', 'Formal Letter', 'Illustration'
 ];

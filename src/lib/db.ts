@@ -8,7 +8,7 @@ export const db = {
     if (data) {
       const parsed = JSON.parse(data);
       if (parsed.founder_note === undefined) {
-         parsed.founder_note = "Every child deserves a platform to show what they're capable of — even if they can't be at camp in person. We are incredibly proud of these young minds.";
+         parsed.founder_note = "Every child deserves a platform to show what they're capable of — even if they can't be at camp in person or have left the camp. We are incredibly proud of these young minds.";
       }
       return parsed;
     }
@@ -17,7 +17,7 @@ export const db = {
       main_title: 'Delta SDGs Youngsters',
       subtitle: 'Youth Catalogue',
       tagline: 'Young innovators shaping the future',
-      founder_note: "Every child deserves a platform to show what they're capable of — even if they can't be at camp in person. We are incredibly proud of these young minds.",
+      founder_note: "Every child deserves a platform to show what they're capable of — even if they can't be at camp in person or have left the camp. We are incredibly proud of these young minds.",
     };
   },
   async updateBranding(data: Branding): Promise<void> {
