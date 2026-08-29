@@ -3,6 +3,8 @@ import { Branding, Participant } from '../types';
 import { db } from '../lib/db';
 
 interface AppContextType {
+  viewMode: "youngster" | "youth";
+  setViewMode: (mode: "youngster" | "youth") => void;
   branding: Branding | null;
   refreshBranding: () => Promise<void>;
   loggedInParent: Participant | null;
@@ -18,6 +20,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [branding, setBranding] = useState<Branding | null>(null);
   const [loggedInParent, setLoggedInParent] = useState<Participant | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<"youngster" | "youth">("youngster");
 
   const refreshBranding = async () => {
     const data = await db.getBranding();
@@ -66,7 +69,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AppContext.Provider value={{ branding, refreshBranding, loggedInParent, loginParent, logoutParent, isLoading, forceLoginAs } as any}>
+    <AppContext.Provider value={{ branding, refreshBranding, loggedInParent, loginParent, logoutParent, isLoading, forceLoginAs, viewMode, setViewMode } as any}>
       {children}
     </AppContext.Provider>
   );

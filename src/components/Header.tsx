@@ -4,7 +4,7 @@ import { useAppContext } from '../store/AppContext';
 import { Search, Users, LogIn } from 'lucide-react';
 
 export default function Header() {
-  const { branding, loggedInParent } = useAppContext();
+  const { branding, loggedInParent, viewMode } = useAppContext();
 
   if (!branding) return null;
 
@@ -28,7 +28,8 @@ export default function Header() {
               <Link to="/" className="text-xl font-bold text-gray-900 leading-tight">
                 {branding.main_title}
               </Link>
-              <span className="text-sm font-medium text-blue-600">{branding.subtitle}</span>
+              
+
               <span className="text-xs text-gray-500 italic mt-0.5">"{branding.tagline}"</span>
             </div>
           </div>
@@ -54,14 +55,15 @@ export default function Header() {
               <Users className="w-4 h-4" />
               Staff
             </Link>
+
             {loggedInParent ? (
-              <Link to="/parent-dashboard" className="bg-blue-50 text-blue-700 px-4 py-2 rounded-full hover:bg-blue-100 transition-colors flex items-center gap-2">
-                👪 Parent Dashboard
+              <Link to="/parent-dashboard" className={`${viewMode === 'youth' ? 'bg-teal-50 text-teal-700 hover:bg-teal-100' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'} px-4 py-2 rounded-full transition-colors flex items-center gap-2`}>
+                {viewMode === 'youth' ? '👤 Youth Dashboard' : '👪 Parent Dashboard'}
               </Link>
             ) : (
-              <Link to="/login" className="bg-blue-600 text-white px-4 py-2 rounded-full hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm">
+              <Link to="/login" className={`${viewMode === 'youth' ? 'bg-teal-600 hover:bg-teal-700' : 'bg-blue-600 hover:bg-blue-700'} text-white px-4 py-2 rounded-full transition-colors flex items-center gap-2 shadow-sm`}>
                 <LogIn className="w-4 h-4" />
-                Parent Login
+                {viewMode === 'youth' ? 'Youth Login' : 'Parent Login'}
               </Link>
             )}
           </div>
